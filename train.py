@@ -231,6 +231,10 @@ class EvalTracker(object):
     labels = mask.crop_and_pad(labels, (0, 0, 0), self._eval_shape)
     loss, = self.sess.run([self.eval_loss], {self.eval_labels: labels,
                                              self.eval_preds: predicted},options=options, run_metadata=run_metadata)
+    fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+    chrome_trace = fetched_timeline.generate_chrome_trace_format()
+    with open('timeline_01.json', 'w') as f:
+      f.write(chrome_trace)
     self.loss += loss
     self.total_voxels += labels.size
     self.masked_voxels += np.sum(weights == 0.0)
@@ -722,11 +726,6 @@ def main(argv=()):
 
   train_ffn(model_class, batch_size=FLAGS.batch_size,
             **json.loads(FLAGS.model_args))
-  
-  fetched_timeline = timeline.Timeline(run_metadata.step_stats)
-  chrome_trace = fetched_timeline.generate_chrome_trace_format()
-  with open('timeline_01.json', 'w') as f:
-     f.write(chrome_trace)
       
 
 if __name__ == '__main__':
