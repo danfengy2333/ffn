@@ -44,6 +44,7 @@ import six
 from scipy.special import expit
 from scipy.special import logit
 import tensorflow as tf
+from tensorflow.python.client import timeline
 
 from absl import app
 from absl import flags
@@ -93,7 +94,7 @@ flags.DEFINE_string('master', '', 'Network address of the master.')
 flags.DEFINE_integer('batch_size', 4, 'Number of images in a batch.')
 flags.DEFINE_integer('task', 0, 'Task id of the replica running the training.')
 flags.DEFINE_integer('ps_tasks', 0, 'Number of tasks in the ps job.')
-flags.DEFINE_integer('max_steps', 10000, 'Number of steps to train for.')
+flags.DEFINE_integer('max_steps', 2500, 'Number of steps to train for.')
 flags.DEFINE_integer('replica_step_delay', 300,
                      'Require the model to reach step number '
                      '<replica_step_delay> * '
@@ -222,12 +223,14 @@ class EvalTracker(object):
   def add_patch(self, labels, predicted, weights,
                 coord=None, volname=None, patches=None):
     """Evaluates single-object segmentation quality."""
+    options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE) #profiling
+    run_metadata = tf.RunMetadata()
 
     predicted = mask.crop_and_pad(predicted, (0, 0, 0), self._eval_shape)
     weights = mask.crop_and_pad(weights, (0, 0, 0), self._eval_shape)
     labels = mask.crop_and_pad(labels, (0, 0, 0), self._eval_shape)
     loss, = self.sess.run([self.eval_loss], {self.eval_labels: labels,
-                                             self.eval_preds: predicted})
+                                             self.eval_preds: predicted},options=options, run_metadata=run_metadata)
     self.loss += loss
     self.total_voxels += labels.size
     self.masked_voxels += np.sum(weights == 0.0)
@@ -719,7 +722,12 @@ def main(argv=()):
 
   train_ffn(model_class, batch_size=FLAGS.batch_size,
             **json.loads(FLAGS.model_args))
-
+  
+  fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+  chrome_trace = fetched_timeline.generate_chrome_trace_format()
+  with open('timeline_01.json', 'w') as f:
+     f.write(chrome_trace)
+      
 
 if __name__ == '__main__':
   flags.mark_flag_as_required('train_coords')
