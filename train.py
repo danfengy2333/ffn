@@ -297,9 +297,17 @@ def run_training_step(sess, model, fetch_summary, feed_dict):
 
   if fetch_summary is not None:
     ops_to_run.append(fetch_summary)
-
-  results = sess.run(ops_to_run, feed_dict)
+   
+  options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE) #profiling
+  run_metadata = tf.RunMetadata()
+  
+  results = sess.run(ops_to_run, feed_dict,options=options, run_metadata=run_metadata)
   step, prediction = results[1:3]
+  
+  fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+  chrome_trace = fetched_timeline.generate_chrome_trace_format()
+  with open('timeline_01.json', 'w') as f:
+    f.write(chrome_trace)
 
   if fetch_summary is not None:
     summ = results[-1]
