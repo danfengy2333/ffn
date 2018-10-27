@@ -654,12 +654,15 @@ def train_ffn(model_cls, **model_kwargs):
               log_device_placement=False, allow_soft_placement=True))
       eval_tracker.sess = sess
 
+      options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+      run_metadata = tf.RunMetadata()
+      
       if FLAGS.task > 0:
         # To avoid early instabilities when using multiple replicas, we use
         # a launch schedule where new replicas are brought online gradually.
         logging.info('Delaying replica start.')
         while True:
-          if (int(sess.run(model.global_step)) >= FLAGS.replica_step_delay *
+          if (int(sess.run(model.global_step,options=options, run_metadata=run_metadata)) >= FLAGS.replica_step_delay *
               FLAGS.task):
             break
           time.sleep(5.0)
@@ -672,9 +675,14 @@ def train_ffn(model_cls, **model_kwargs):
           'fixed': partial(fixed_offsets, fov_shifts=fov_shifts),
           'max_pred_moves': max_pred_offsets
       }
-      batch_it = get_batch(lambda: sess.run(load_data_ops),
+      batch_it = get_batch(lambda: sess.run(load_data_ops,options=options, run_metadata=run_metadata),
                            eval_tracker, model, FLAGS.batch_size,
                            policy_map[FLAGS.fov_policy])
+      
+      fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+      chrome_trace = fetched_timeline.generate_chrome_trace_format()
+      with open('timeline_01.json', 'w') as f:
+        f.write(chrome_trace)
 
       step = 0
       t_last = time.time()
