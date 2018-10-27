@@ -689,6 +689,7 @@ def train_ffn(model_cls, **model_kwargs):
 
       while step < FLAGS.max_steps:
         # Run summaries periodically.
+        logging.info('Iteration' + str(step))
         t_curr = time.time()
         if t_curr - t_last > FLAGS.summary_rate_secs and FLAGS.task == 0:
           summ_op = merge_summaries_op
